@@ -10,7 +10,7 @@ const roomSchema = new mongoose.Schema({
         type: String,
         required: true
     },
-    typw: {
+    type: {
         type: String,
         enum: ['single', 'double'],
         default: 'single'
@@ -38,6 +38,6 @@ const roomSchema = new mongoose.Schema({
         type: String
     }],
 
-})
+},{timestamps: true});
 
 module.exports = mongoose.model('Room', roomSchema);

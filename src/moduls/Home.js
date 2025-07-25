@@ -18,6 +18,6 @@ const homeSchema = new mongoose.Schema({
     homeImage: {
         type: String
     }
-})
+}, {timestamps:true})
 
 module.exports = mongoose.model('Home', homeSchema);
