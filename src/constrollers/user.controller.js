@@ -1,6 +1,7 @@
 const User = require('../moduls/User.js');
-const { uploadToCloudinary } = require('../utils/cloudinary.js');
+const { uploadToCloudinary, deleteFromCloudinary } = require('../utils/cloudinary.js');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 
 exports.registerUser = async (req, res) => {
     //get user detail from frontend
@@ -20,21 +21,22 @@ exports.registerUser = async (req, res) => {
             return res.status(400).json({ message: "Please fill all the fields" });
         }
 
-        const existingUser = await User.findOne({
-            $or: [{ email }, { name }]
-        });
+        const existingUser = await User.findOne({ email });
 
         if (existingUser) {
             return res.status(400).json({ message: "User already exists with this email or name" });
         }
 
-        const profileImagePath = req.files?.profileImage?.[0]?.path;
 
-        let profileImageUrl = null;
+        let profileImage = {url: null, public_id: null};
+        const profileImagePath = req.files?.profileImage?.[0]?.path;
+        // If profile image is provided, upload it to Cloudinary
+
         if (profileImagePath) {
             const uploadResponse = await uploadToCloudinary(profileImagePath);
             if (uploadResponse) {
-                profileImageUrl = uploadResponse.url;
+                profileImage.url = uploadResponse.url;
+                profileImage.public_id = uploadResponse.public_id;
             } else {
                 return res.status(500).json({ message: "Failed to upload profile image" });
             }
@@ -46,7 +48,7 @@ exports.registerUser = async (req, res) => {
             password,
             phone,
             role,
-            profileImage: profileImageUrl
+            profileImage
         });
 
         const createdUser = await User.findById(user._id).select('-password');
@@ -159,6 +161,64 @@ exports.getUserById = async (req, res) => {
         });
     } catch (error) {
         console.error("Get User By ID Error:", error.message);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+}
+
+exports.updateUserProfile = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const user = await User.findById(userId);
+        if(!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        // Update user details
+        const { name, email, phone,role,password } = req.body;
+        if (name) user.name = name;
+        if (email) user.email = email.toLowerCase();
+        if (phone) user.phone = phone;
+        if (role) user.role = role;
+        if (password) {
+            const salt = await bcrypt.genSalt(10);
+            user.password = await bcrypt.hash(password, salt);
+        }
+        
+
+        // Handle profile image upload
+        const profileImagePath = req.files?.profileImage?.[0]?.path;
+        if (profileImagePath) {
+            // If a new profile image is uploaded, delete the old one if it exists
+            if (user.profileImage?.public_id) {
+                await deleteFromCloudinary(user.profileImage?.public_id);
+            }
+
+            // Upload the new profile image to Cloudinary
+            const uploadResponse = await uploadToCloudinary(profileImagePath)
+            if (uploadResponse) {
+                user.profileImage.url = uploadResponse.url;
+                user.profileImage.public_id = uploadResponse.public_id;
+            }
+        }
+
+        await user.save();
+
+        res.status(200).json({
+            success: true,
+            message: "User profile updated successfully",
+            user: {
+                _id: user._id,
+                name: user.name,
+                email: user.email,
+                phone: user.phone,
+                profileImage: user.profileImage,
+                role: user.role,
+                token: user.generateAuthToken()
+            },
+            
+        });
+    } catch (error) {
+        console.error("Update User Profile Error:", error.message);
         return res.status(500).json({ message: "Internal server error" });
     }
 }
