@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
-const homeSchema = new mongoose.Schema({
-    admin: {
+const houseSchema = new mongoose.Schema({
+    owner: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
         required: true
@@ -15,9 +15,10 @@ const homeSchema = new mongoose.Schema({
     city: {
         type: String,
     },
-    homeImage: {
-        type: String
+    image: {
+        url: String,
+        public_id: String
     }
 }, {timestamps:true})
 
-module.exports = mongoose.model('Home', homeSchema);
+module.exports = mongoose.model('House', houseSchema);

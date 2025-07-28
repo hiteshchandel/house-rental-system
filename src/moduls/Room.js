@@ -1,9 +1,9 @@
 const mongoose = require('mongoose');
 
 const roomSchema = new mongoose.Schema({
-    home: {
+    house: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Home',
+        ref: 'House',
         required: true
     },
     roomNumber: {
@@ -15,11 +15,11 @@ const roomSchema = new mongoose.Schema({
         enum: ['single', 'double'],
         default: 'single'
     },
-    kitchen: {
+    attachedKitchen: {
         type: Boolean,
         default: false
     },
-    bathroom: {
+    attachedBathroom: {
         type: Boolean,
         default: false
     },
@@ -31,11 +31,14 @@ const roomSchema = new mongoose.Schema({
         type: Number,
         required: true
     },
-    roomImage: {
-        type: String
+    status: {
+        type: String,
+        enum: ['available', 'booked', 'maintenance'],
+        default: 'available'
     },
     images: [{
-        type: String
+        public_Id: String,
+        url: String
     }],
 
 },{timestamps: true});
