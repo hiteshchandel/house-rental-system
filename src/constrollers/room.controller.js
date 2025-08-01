@@ -117,7 +117,9 @@ exports.getRoomById = async (req, res) => {
 
 exports.getAvailableRooms = async (req, res) => {
     try {
-        const rooms = await Room.find({ isAvailable: true }).populate('house', 'plotNumber location city image');
+        const rooms = await Room.find({ isAvailable: true })
+            .sort({rentAmount : 1})
+            .populate('house', 'plotNumber location city image');
         
         if (!rooms || rooms.length === 0) {
             return res.status(404).json({
@@ -125,6 +127,7 @@ exports.getAvailableRooms = async (req, res) => {
                 message: "No available rooms found"
             });
         }
+
         return res.status(200).json({
             success: true,
             message: "Available rooms fetched successfully",

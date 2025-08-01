@@ -38,7 +38,8 @@ const roomSchema = new mongoose.Schema({
     },
     images: [{
         public_Id: String,
-        url: String
+        url: String,
+        _id : false
     }],
 
 },{timestamps: true});

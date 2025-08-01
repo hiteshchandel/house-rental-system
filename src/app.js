@@ -22,6 +22,6 @@ const roomRouter = require("./routes/room.routes.js")
 
 app.use("/api/v1/user", userRoutes);
 app.use("/api/v1/house", houseRoutes);
-app.use("/api/rooms", roomRouter);
+app.use("/api/v1/room", roomRouter);
 
 module.exports = app;

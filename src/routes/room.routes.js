@@ -7,13 +7,11 @@ const { addRoom, getRoomsByHouseId, getRoomById, getAvailableRooms, updateRoomSt
 router.route('/:id').post(
     verifyToken,
     isAdmin,
-    upload.fields([{ nema: 'images', maxCount: 5 }]),
+    upload.fields([{ name: 'images', maxCount: 5 }]),
     addRoom
 )
 
-router.route('/:id').get(
-    getRoomsByHouseId
-)
+
 
 router.route('/single/:id').get(
     getRoomById
@@ -21,6 +19,10 @@ router.route('/single/:id').get(
 
 router.route('/available').get(
     getAvailableRooms
+)
+
+router.route('/:id').get(
+    getRoomsByHouseId
 )
 
 router.route('/:id/status').patch(
