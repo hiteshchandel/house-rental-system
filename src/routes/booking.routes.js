@@ -1,18 +1,16 @@
-// const router = require('express').Router();
-// const { createBooking, getAllBookings, getUserBookings, cancelBooking, completeBooking } = require('../constrollers/booking.controller');
-// const { verifyToken } = require('../middlewares/auth.middleware');
+const router = require('express').Router();
+const { createBooking, verifyPayment, cancelBooking, getUserBookings } = require('../constrollers/booking.controller.js');
+const { verifyToken } = require('../middlewares/auth.middleware');
 // const { isAdmin } = require('../middlewares/isAdmin.middleware');
 
 
 
-// router.post('/:roomId', verifyToken, createBooking);
+router.post('/create', verifyToken, createBooking);
 
-// router.get('/',verifyToken, isAdmin, getAllBookings);
+router.post('/verify',verifyToken, verifyPayment);
 
-// router.get('/user', verifyToken, getUserBookings)
+router.delete('/:bookingId/cancel', verifyToken, cancelBooking);
 
-// router.put('/cancel/:id', verifyToken, cancelBooking);
+router.get('/my-bookings', verifyToken, getUserBookings);
 
-// router.put('/complete/:id', verifyToken, completeBooking)
-
-// module.exports = router;
+module.exports = router;

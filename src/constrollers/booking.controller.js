@@ -1,154 +1,136 @@
-// const Booking = require('../moduls/Booking.js');
-// const Room = require('../moduls/Room.js');
+const express = require('express');
+const Booking = require('../moduls/Booking');
+const Room = require('../moduls/Room');
+const User = require('../moduls/User');
+const Razorpay = require('razorpay');   // ✅ Import Razorpay
+const crypto = require('crypto');
+require('dotenv').config();
 
-// exports.createBooking = async (req, res) => {
-//     try {
-//         const userId = req.user._id; 
-//         const { roomId } = req.body;
+const razorpayInstance = new Razorpay({
+    key_id: process.env.RAZORPAY_KEY,     // ✅ Correct keys
+    key_secret: process.env.RAZORPAY_SECRET
+});
 
-//         if (!roomId) {
-//             return res.status(400).json({ success: false, message: "Room ID is required" });
-//         }
+// ✅ Create Booking (with Razorpay order)
+exports.createBooking = async (req, res) => {
+    try {
+        const { roomId, checkInDate, checkOutDate, totalAmount } = req.body;
+        const userId = req.user._id;
 
-//         const room = await Room.findById(roomId);
-//         if (!room || room.status !== 'available') {
-//             return res.status(400).json({ success: false, message: "Room is not available for booking" });
-//         }
+        const room = await Room.findById(roomId);
+        if (!room) {
+            return res.status(404).json({ error: 'Room not found' });
+        }
+
+        // Razorpay Order
+        const options = {
+            amount: totalAmount * 100,
+            currency: "INR",
+            receipt: `receipt_${userId}_${roomId}`
+        };
+
+        const order = await razorpayInstance.orders.create(options);
+
+        const booking = new Booking({
+            user: userId,
+            room: roomId,
+            checkInDate,
+            checkOutDate,
+            totalAmount,
+            status: 'booked',  // ✅ Fixed
+            paymentStatus: 'pending',
+            paymentDetails: {
+                razorpayOrderId: order.id,
+                method: 'online'
+            }
+        });
+
+        await booking.save();
+
+        res.status(201).json({
+            success: true,
+            bookingId: booking._id,
+            order
+        });
+    } catch (error) {
+        console.error('Error creating booking:', error);
+        res.status(500).json({ error: 'Failed to create booking' });
+    }
+};
+
+// ✅ Verify Payment
+exports.verifyPayment = async (req, res) => {
+    try {
+        const { razorpayOrderId, razorpayPaymentId, razorpaySignature } = req.body;
         
-//         const newBooking = await Booking.create({
-//             user: userId,
-//             room: roomId
-//         });
+        const sign = razorpayOrderId + '|' + razorpayPaymentId;
+        const expectedSignature = crypto
+            .createHmac('sha256', process.env.RAZORPAY_SECRET)
+            .update(sign)
+            .digest('hex');
 
-//         room.status = 'booked';
-//         room.isAvailable = false;
-//         await room.save();
+        if (expectedSignature !== razorpaySignature) {
+            return res.status(400).json({ error: 'Invalid signature' });
+        }
 
-//         return res.status(200).json({
-//             success: true,
-//             message: "Room booked SuccessFully",
-//             booking: newBooking
-//         });
-//     } catch (error) {
-//         console.error("Booking error : ", error.message);
-//         return res.status(500).json({
-//             success: false,
-//             message: "Internal server error"
-//         });
-//     };
-// }
+        const booking = await Booking.findOneAndUpdate(
+            { 'paymentDetails.razorpayOrderId': razorpayOrderId },
+            {
+                $set: {
+                    paymentStatus: 'paid',
+                    'paymentDetails.razorpayPaymentId': razorpayPaymentId,
+                    'paymentDetails.razorpaySignature': razorpaySignature,
+                    status: 'booked'
+                }
+            },
+            { new: true }
+        );
 
-// exports.getAllBookings = async (req, res) => {
-//     try {
-//         const bookings = await Booking.find()
-//             .populate('user', 'name email')
-//             .populate({
-//                 path: 'room',
-//                 populate: { path: 'house', select: 'plotNumber city' }
-//             })
-//             .sort({ createdAt: -1 });
-        
-//         return res.status(200).json({
-//             success: true,
-//             bookings
-//         })
-//     } catch (error) {
-//         console.log("Error : ", error);
-//         return res.status(500).json({
-//             success: false,
-//             message : "Internal server Error"
-//         })
-//     }
-// }
+        if (!booking) {
+            return res.status(404).json({ error: 'Booking not found' });
+        }
 
-// exports.getUserBookings = async (req, res) => {
-//     try {
-//         const userId = req.user._id;
+        res.status(200).json({ success: true, booking });
 
-//         const bookings = await Booking.find({ user: userId })
-//             .populate('room')
-//             .sort({ createdAt: -1 });
-        
-//         return res.status(200).json({
-//             success: true,
-//             Bookings : bookings
-//         })
-//     } catch (error) {
-//         console.log('Error : ', error);
-//         return res.status(500).json({
-//             success: false,
-//             message: "Internal server Error"
-//         })
-//     }
-// }
+    } catch (error) {
+        console.error('Error verifying payment:', error);
+        res.status(500).json({ error: 'Failed to verify payment' });
+    }
+};
 
+// ✅ Cancel Booking
+exports.cancelBooking = async (req, res) => {
+    try {
+        const { bookingId } = req.params;
 
-// exports.cancelBooking = async (req, res) => {
-//     try {
-//         const bookingId = req.params.id;
+        const booking = await Booking.findById(bookingId);
+        if (!booking) {
+            return res.status(404).json({ error: 'Booking not found' });
+        }
 
-//         const booking = await Booking.findById(bookingId).populate('room');
-//         if (!booking) {
-//             return res.status(404).json({
-//                 success: false,
-//                 message: "Booking not found"
-//             });
-//         }
+        if (booking.status === 'cancelled') {
+            return res.status(400).json({ error: 'Booking already cancelled' });
+        }
 
-//         booking.status = 'cancelled';
-//         await booking.save();
+        booking.status = 'cancelled';
+        booking.paymentStatus = 'refunded'; // optional if you add refund
+        await booking.save();
 
-//         //Mark room as available again
+        res.status(200).json({ success: true, booking });
+    } catch (error) {
+        console.error('Error cancelling booking:', error);
+        res.status(500).json({ error: 'Failed to cancel booking' });
+    }
+};
 
-//         const room = booking.room;
-//         room.status = 'available';
-//         room.isAvailable = true;
-//         await room.save();
-
-//         return res.status(200).json({
-//             success: true,
-//             message: "Booking cancelled successfully"
-//         });
-//     } catch (error) {
-//         console.log('Error : ', error);
-//         return res.status(500).json({
-//             success: false,
-//             message: "Internal server Error"
-//         });
-//     }
-// }
-
-// exports.completeBooking = async (req, res) => {
-//     try {
-//         const bookingId = req.params.id;
-
-//         const booking = await Booking.findById(bookingId).populate("room");
-
-//         if (!booking) {
-//             return res.status(404).json({
-//                 success: false,
-//                 message: "Booking not found"
-//             });
-//         }
-
-//         booking.status = 'completed';
-//         await booking.save();
-
-//         //Optional : mark room as available again
-//         const room = booking.room;
-//         room.status = 'available';
-//         room.isAvailable = true;
-//         await room.save();
-
-//         return res.status(200).json({
-//             success: true,
-//             message: "Booking marked as completed"
-//         });
-//     } catch (error) {
-//         console.log("Error :", error);
-//         return res.status(500).json({
-//             success: false,
-//             message : "Internal server Error"
-//         })
-//     }
-// }
+// ✅ Get User Bookings
+exports.getUserBookings = async (req, res) => {
+    try {
+        const bookings = await Booking.find({ user: req.user._id })
+            .populate("room")
+            .sort({ createdAt: -1 });
+        res.status(200).json({ success: true, bookings });
+    } catch (error) {
+        res.status(500).json({ error: "Error fetching bookings" });
+    }
+};

@@ -28,11 +28,6 @@ const bookingSchema = new mongoose.Schema({
         enum: ['booked', 'cancelled', 'completed'],
         default: 'booked'
     },
-    paymentMethod: {
-        type: String,
-        enum: ['online', 'cash'],
-        required: true
-    },
     paymentStatus: {
         type: String,
         enum: ['pending', 'paid', 'failed', 'refunded'],
@@ -46,12 +41,16 @@ const bookingSchema = new mongoose.Schema({
         razorpayOrderId: { type: String },
         razorpayPaymentId: { type: String },
         razorpaySignature: { type: String },
-        cashReceivedBy: { type: String }
+        method: { type: String }
     },
     refundDetails: {
         refundId: { type: String },
-        refundStatus: { type: String, enum: ['pending', 'processed', 'failed'] }
+        refundStatus: { type: String, enum: ['pending', 'processed', 'failed'] },
+        refundDate: { type: Date },
+        refundAmount: { type: Number }
     }
 }, { timestamps: true });
 
-module.exports = mongoose.model('Booking', bookingSchema);
+// ✅ Correct export
+// module.exports = mongoose.model('Booking', bookingSchema);
+module.exports = mongoose.models.Booking || mongoose.model("Booking", bookingSchema);
