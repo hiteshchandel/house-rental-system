@@ -15,9 +15,11 @@ const razorpayInstance = new Razorpay({
 exports.createBooking = async (req, res) => {
     try {
         const { roomId, checkInDate, checkOutDate, totalAmount } = req.body;
+        console.log('roomId:', roomId);
         const userId = req.user._id;
 
         const room = await Room.findById(roomId);
+        console.log('room:', room);
         if (!room) {
             return res.status(404).json({ error: 'Room not found' });
         }
@@ -26,10 +28,13 @@ exports.createBooking = async (req, res) => {
         const options = {
             amount: totalAmount * 100,
             currency: "INR",
-            receipt: `receipt_${userId}_${roomId}`
+            receipt: `receipt_${userId}}`
         };
 
         const order = await razorpayInstance.orders.create(options);
+        if (!order) {
+            return res.status(500).json({ error: 'Failed to create Razorpay order' });
+        }
 
         const booking = new Booking({
             user: userId,

@@ -91,6 +91,8 @@ exports.loginUser = async (req, res) => {
 
         const user = await User.findOne({ email: email.toLowerCase() });
 
+        console.log("User found:", user);
+
         if (!user) {
             console.log("User does not exist with this email");
             return res.status(404).json({ message: "user does not exist" });

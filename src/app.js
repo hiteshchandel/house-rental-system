@@ -21,6 +21,10 @@ const houseRoutes = require("./routes/house.routes.js");
 const roomRouter = require("./routes/room.routes.js")
 const bookingRouter = require("./routes/booking.routes.js")
 
+app.get("/", (req, res) => {
+    res.send("API is running...");
+});
+
 app.use("/api/v1/user", userRoutes);
 app.use("/api/v1/house", houseRoutes);
 app.use("/api/v1/room", roomRouter);

@@ -1,62 +1,62 @@
 const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 
-const bookingSchema = new mongoose.Schema({
-    user: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-        required: true
-    },
-    room: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Room',
-        required: true
-    },
-    bookingDate: {
-        type: Date,
-        default: Date.now
-    },
-    checkInDate: {
-        type: Date,
-        required: true
-    },
-    checkOutDate: {
-        type: Date,
-        required: true
-    },
-    status: {
+const userSchema = new mongoose.Schema({
+    name: {
         type: String,
-        enum: ['booked', 'cancelled', 'completed'],
-        default: 'booked'
+        required: true,
     },
-    paymentMethod: {
+    email: {
         type: String,
-        enum: ['online', 'cash'],
-        required: true
+        required: true,
+        unique: true,
     },
-    paymentStatus: {
+    password: {
         type: String,
-        enum: ['pending', 'paid', 'failed', 'refunded'],
-        default: 'pending'
+        required: true,
     },
-    totalAmount: {
-        type: Number,
-        required: true
+    phone: {
+        type:String,
     },
-    paymentDetails: {
-        razorpayOrderId: { type: String },
-        razorpayPaymentId: { type: String },
-        razorpaySignature: { type: String },
-        cashReceivedBy: { type: String }
+    role: {
+        type: String,
+        enum: ['user', 'admin'],
+        default: 'user'
     },
-    refundDetails: {
-        refundId: { type: String },
-        refundStatus: { type: String, enum: ['pending', 'processed', 'failed'] }
-    },
-    verifiedBy: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User' // Admin ID
-    },
-    verifiedAt: { type: Date }
+    profileImage: {
+        url: String,
+        public_id: String
+    }
 }, { timestamps: true });
 
-module.exports = mongoose.model('Booking', bookingSchema);
+
+userSchema.pre('save', async function (next) {
+    if (this.isModified("password")) {
+        const salt = await bcrypt.genSalt(10);
+        this.password = await bcrypt.hash(this.password, salt);
+    }
+    next();
+});
+
+userSchema.methods.isPasswordCorrect = async function (password) {
+    return await bcrypt.compare(password, this.password)
+};
+
+
+userSchema.methods.generateAuthToken = function () {
+    return jwt.sign(
+        {
+            _id: this._id,
+            email: this.email,
+            role: this.role,
+            name: this.name
+        },
+        process.env.JWT_SECRET,
+        {
+            expiresIn: process.env.TOKEN_EXPIRY,
+        }
+    )
+}
+
+module.exports = mongoose.model('User', userSchema);
